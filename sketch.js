@@ -233,10 +233,13 @@ function draw() {
 
   // Get sun position to calculate brightness (call once to update global state)
   const sunPos = getSunPosition(country.lat, country.lon, now);
-  if (sunPos.elevation > 0) {
-    currentAzimuth = sunPos.azimuth;
-    currentElevation = sunPos.elevation;
 
+  // Always update azimuth and elevation for text readouts
+  currentAzimuth = sunPos.azimuth;
+  currentElevation = sunPos.elevation;
+
+  // Only calculate light angle when sun is above horizon
+  if (sunPos.elevation > 0) {
     // Determine which window is active to calculate appropriate light angle
     const isAfternoon = currentAzimuth >= 180;
     currentLightAngle = isAfternoon
