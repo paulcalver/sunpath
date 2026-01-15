@@ -22,25 +22,22 @@ TBC
 
 ## Technology Used
 
-Made using p5.js
-
+Made using p5.js<br/><br/>
 
 
 ## Screenshots / Media
 
-![SUN - Overview Screenshot](media/sun_01.jpg)
+![SUN - Overview Screenshot](media/sun_02.jpg)
 
 
 
 ## Credits / Acknowledgements
 
-Paul Calver - Jan 2026
-
-
+Paul Calver - Jan 2026<br/><br/>
 
 ## Repo
 
-GitHub Repo – <br/><br/>
+GitHub Repo – https://github.com/paulcalver/sunpath.git<br/><br/>
 
 
 ## Contact Info
