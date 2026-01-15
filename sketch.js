@@ -159,7 +159,7 @@ function updateTimeDisplay() {
     sunsetStr = `${ssHours}:${ssMinutes}`;
   }
 
-  timeDisplay.html(`${dateStr} | ${locationName} | ${wallDirection} Wall (${wallBearing}°) | ${hours}:${minutes}:${seconds} | Elevation: ${elevationStr}° | Azimuth: ${azimuthStr}° | Sunrise: ${sunriseStr} | Sunset: ${sunsetStr}`);
+  timeDisplay.html(`${dateStr} | ${locationName} | ${wallDirection} Wall (${wallBearing}°) | GMT ${hours}:${minutes}:${seconds} | Elevation: ${elevationStr}° | Azimuth: ${azimuthStr}° | Sunrise: ${sunriseStr} | Sunset: ${sunsetStr}`);
 }
 
 function preload() {
