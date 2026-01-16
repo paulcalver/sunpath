@@ -1,15 +1,14 @@
-// Configuration constants
-const london = { lat: 51.5074, lon: -0.1278 };
-const marrakesh = { lat: 31.6295, lon: -7.9811 };
-const reykjavik = { lat: 64.1355, lon: -21.8954 };
-const barcelona = { lat: 41.3851, lon: 2.1734 };
-const eritrea = { lat: 15.3229, lon: 38.9251 };
-
-// Select country for simulation
-const country = marrakesh;  
+// Configuration constants - Location array for multi-timezone support
+const locations = [
+  { id: 'london', name: 'London', lat: 51.5074, lon: -0.1278, enabled: true, keyNumber: 1 },
+  { id: 'marrakesh', name: 'Marrakesh', lat: 31.6295, lon: -7.9811, enabled: true, keyNumber: 2 },
+  { id: 'reykjavik', name: 'Reykjavik', lat: 64.1355, lon: -21.8954, enabled: false, keyNumber: 3 },
+  { id: 'barcelona', name: 'Barcelona', lat: 41.3851, lon: 2.1734, enabled: false, keyNumber: 4 },
+  { id: 'eritrea', name: 'Eritrea', lat: 15.3229, lon: 38.9251, enabled: false, keyNumber: 5 }
+];  
 
 // Building wall bearing in degrees
-const wallBearing = 245;
+const wallBearing = 270;
 
 // Window grid configuration
 let windowCol;
@@ -18,11 +17,6 @@ let paneWidth;
 let paneHeight;
 let paneGapX;
 let paneGapY;
-
-// Sun position state (shared for brightness calculations)
-let currentElevation = 0;
-let currentAzimuth = 0;
-let currentLightAngle = 0;
 
 // Time animation
 let timeProgress = 0; // 0 to 1, loops continuously
@@ -106,16 +100,7 @@ function updateTimeDisplay() {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const dateStr = `${months[sunTime.getMonth()]} ${sunTime.getDate()}, ${sunTime.getFullYear()}`;
 
-  // Get location name (from the selected country constant)
-  let locationName = 'Unknown';
-  if (country === london) locationName = 'London';
-  else if (country === reykjavik) locationName = 'Reykjavik';
-  else if (country === marrakesh) locationName = 'Marrakesh';
-  else if (country === barcelona) locationName = 'Barcelona';
-  else if (country === eritrea) locationName = 'Eritrea';
-
-
-  // Determine wall direction based on wallBearing (270 = South)
+  // Determine wall direction based on wallBearing
   let wallDirection = '';
   if (wallBearing >= 247.5 && wallBearing < 292.5) {
     // 270 ± 22.5 degrees = South
@@ -138,28 +123,30 @@ function updateTimeDisplay() {
     wallDirection = 'South-West';
   }
 
-  // Format elevation and azimuth with 1 decimal place
-  const elevationStr = currentElevation.toFixed(1);
-  const azimuthStr = currentAzimuth.toFixed(1);
+  // Master line
+  const masterLine = `${dateStr} | ${wallDirection} Wall (${wallBearing}°) | GMT ${hours}:${minutes}:${seconds}`;
 
-  // Calculate sunrise and sunset times
-  const sunTimes = getSunriseSunset(country.lat, country.lon, sunTime);
-  let sunriseStr = 'N/A';
-  let sunsetStr = 'N/A';
+  // Build location lines for all enabled locations
+  const enabledLocations = locations.filter(loc => loc.enabled);
+  const locationLines = enabledLocations.map(location => {
+    const sunPos = getSunPosition(location.lat, location.lon, sunTime);
+    const elevStr = sunPos.elevation.toFixed(1);
+    const azStr = sunPos.azimuth.toFixed(1);
 
-  if (sunTimes.sunrise) {
-    const srHours = String(sunTimes.sunrise.getHours()).padStart(2, '0');
-    const srMinutes = String(sunTimes.sunrise.getMinutes()).padStart(2, '0');
-    sunriseStr = `${srHours}:${srMinutes}`;
-  }
+    // Check if sun is at horizon (sunrise/sunset) - within 2 degrees of horizon
+    const isAtHorizon = sunPos.elevation >= 0 && sunPos.elevation <= 2;
 
-  if (sunTimes.sunset) {
-    const ssHours = String(sunTimes.sunset.getHours()).padStart(2, '0');
-    const ssMinutes = String(sunTimes.sunset.getMinutes()).padStart(2, '0');
-    sunsetStr = `${ssHours}:${ssMinutes}`;
-  }
+    // Color the line yellow if at sunrise/sunset
+    if (isAtHorizon) {
+      return `<span style="color: #FFD700;">[${location.keyNumber}] ${location.name} | Elevation: ${elevStr}° | Azimuth: ${azStr}°</span>`;
+    } else {
+      return `[${location.keyNumber}] ${location.name} | Elevation: ${elevStr}° | Azimuth: ${azStr}°`;
+    }
+  });
 
-  timeDisplay.html(`${dateStr} | ${locationName} | ${wallDirection} Wall (${wallBearing}°) | GMT ${hours}:${minutes}:${seconds} | Elevation: ${elevationStr}° | Azimuth: ${azimuthStr}° | Sunrise: ${sunriseStr} | Sunset: ${sunsetStr}`);
+  // Combine all lines with HTML line breaks
+  const displayText = [masterLine, ...locationLines].join('<br>');
+  timeDisplay.html(displayText);
 }
 
 function preload() {
@@ -178,12 +165,15 @@ function setup() {
 
   // Create DOM element for time display
   timeDisplay = createDiv('00:00:00');
-  timeDisplay.position(30, height - 50);
+  timeDisplay.style('position', 'fixed');
+  timeDisplay.style('bottom', '30px'); // Anchor to bottom
+  timeDisplay.style('left', '30px');
   timeDisplay.style('color', '#464646');
   timeDisplay.style('font-family', 'monospace');
   timeDisplay.style('font-size', '12px');
   timeDisplay.style('z-index', '1000');
   timeDisplay.style('pointer-events', 'none'); // Don't interfere with mouse events
+  timeDisplay.style('line-height', '1.4'); // Add spacing between lines
 
   // Create graphics buffers
   // Accumulation buffer - persists between frames for trail effect
@@ -231,54 +221,59 @@ function draw() {
   //const now = new Date();
   //now.setHours(14, 0, 0);
 
-  // Get sun position to calculate brightness (call once to update global state)
-  const sunPos = getSunPosition(country.lat, country.lon, now);
-
-  // Always update azimuth and elevation for text readouts
-  currentAzimuth = sunPos.azimuth;
-  currentElevation = sunPos.elevation;
-
-  // Only calculate light angle when sun is above horizon
-  if (sunPos.elevation > 0) {
-    // Determine which window is active to calculate appropriate light angle
-    const isAfternoon = currentAzimuth >= 180;
-    currentLightAngle = isAfternoon
-      ? wallBearing - currentAzimuth           // West: 270 - azimuth
-      : currentAzimuth - (wallBearing - 180);  // East: azimuth - 90
-  }
-
   // Fade the accumulation buffer toward background color
-  //graphics.fill(246, 50, 4, trailAlpha);
   graphics.fill(0, trailAlpha);
   graphics.rect(0, 0, width, height);
 
   // Clear temp buffer completely (transparent)
   tempGraphics.clear();
 
-  // Calculate window brightness based on sun position
-  const appearingSunAlpha = constrain(map(currentElevation, 0, 12, 0, 70), 0, 70);
-  const appearingSunHue = constrain(map(currentAzimuth, 180, 240, 35, 25), 25, 35);
-  const disappearingSunAlpha = constrain(map(currentLightAngle, 12, 0, 70, 0), 0, 70);
-  const windowBrightness = min(appearingSunAlpha, disappearingSunAlpha);
-  const windowAlphaFade = map(windowBrightness, 0, 80, 0, 1);
-
-  // Draw to temp buffer at full opacity
-  const baseWindowAlpha = 70;
-  tempGraphics.fill(appearingSunHue, 100, windowBrightness, baseWindowAlpha * windowAlphaFade);
-
-  // Draw windows with slight offset for depth effect
+  // Constants for window positions (same for all locations)
   const slightOffset = 2;
   const topAlign = 30;
   const leftAlign = 10;
 
-  drawWindow(now, leftAlign, topAlign);
-  drawWindow(now, leftAlign + slightOffset, topAlign + slightOffset);
+  // Loop through enabled locations
+  const enabledLocations = locations.filter(loc => loc.enabled);
 
-  drawWindow(now, leftAlign +300, topAlign);
-  drawWindow(now, leftAlign +300 + slightOffset, topAlign + slightOffset);
+  enabledLocations.forEach((location) => {
+    // Calculate sun position for this location
+    const sunPos = getSunPosition(location.lat, location.lon, now);
 
-  drawWindow(now, leftAlign + 600, topAlign);
-  drawWindow(now, leftAlign + 600 + slightOffset, topAlign + slightOffset);
+    // Skip if sun is below horizon (no windows to draw)
+    if (sunPos.elevation < 0) {
+      return;
+    }
+
+    // Calculate color/brightness for this location's windows
+    const appearingSunAlpha = constrain(map(sunPos.elevation, 0, 12, 0, 70), 0, 70);
+    const appearingSunHue = constrain(map(sunPos.azimuth, 180, 240, 35, 25), 25, 35);
+
+    // Calculate light angle for brightness fade
+    const isAfternoon = sunPos.azimuth >= 180;
+    const lightAngle = isAfternoon
+      ? wallBearing - sunPos.azimuth
+      : sunPos.azimuth - (wallBearing - 180);
+    const disappearingSunAlpha = constrain(map(lightAngle, 12, 0, 70, 0), 0, 70);
+
+    const windowBrightness = min(appearingSunAlpha, disappearingSunAlpha);
+    const windowAlphaFade = map(windowBrightness, 0, 80, 0, 1);
+    const baseWindowAlpha = 70;
+
+    // Set color for this location's windows
+    tempGraphics.fill(appearingSunHue, 100, windowBrightness, baseWindowAlpha * windowAlphaFade);
+
+    // Draw all 3 window pairs at SAME positions for all locations (overlapping)
+    drawWindow(now, location, sunPos, leftAlign, topAlign);
+    drawWindow(now, location, sunPos, leftAlign + slightOffset, topAlign + slightOffset);
+
+    drawWindow(now, location, sunPos, leftAlign + 300, topAlign);
+    drawWindow(now, location, sunPos, leftAlign + 300 + slightOffset, topAlign + slightOffset);
+
+    drawWindow(now, location, sunPos, leftAlign + 600, topAlign);
+    drawWindow(now, location, sunPos, leftAlign + 600 + slightOffset, topAlign + slightOffset);
+  });
+
   // Blend temp buffer onto accumulation buffer
   graphics.image(tempGraphics, 0, 0);
 
@@ -309,15 +304,10 @@ function draw() {
 
 }
 
-function drawWindow(now, windowCornerOffset, windowTopOffset, windowType = 'auto') {
-  const sunPos = getSunPosition(country.lat, country.lon, now);
-
-  if (sunPos.elevation < 0) {
-    return null;
-  }
-
-  currentAzimuth = sunPos.azimuth;
-  currentElevation = sunPos.elevation;
+function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, windowType = 'auto') {
+  // Use passed sunPos instead of calculating (caller already filtered elevation < 0)
+  const currentAzimuth = sunPos.azimuth;
+  const currentElevation = sunPos.elevation;
 
   // Determine if we're rendering west (afternoon) or east (morning) window
   let isWestWindow;
@@ -432,4 +422,23 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   graphics.resizeCanvas(windowWidth, windowHeight);
   tempGraphics.resizeCanvas(windowWidth, windowHeight);
+}
+
+function keyPressed() {
+  // Check if a number key (1-9) was pressed
+  const keyNum = parseInt(key);
+
+  if (!isNaN(keyNum) && keyNum >= 1 && keyNum <= 9) {
+    // Find location with matching keyNumber
+    const location = locations.find(loc => loc.keyNumber === keyNum);
+
+    if (location) {
+      // Toggle enabled state
+      location.enabled = !location.enabled;
+      console.log(`${location.name} ${location.enabled ? 'enabled' : 'disabled'}`);
+    }
+  }
+
+  // Prevent default browser behavior
+  return false;
 }
