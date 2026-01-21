@@ -1,14 +1,24 @@
 // Configuration constants - Location array for multi-timezone support
 const locations = [
-  { id: 'london', name: 'London', lat: 51.5074, lon: -0.1278, enabled: true, keyNumber: 1 },
-  { id: 'marrakesh', name: 'Marrakesh', lat: 31.6295, lon: -7.9811, enabled: true, keyNumber: 2 },
-  { id: 'reykjavik', name: 'Reykjavik', lat: 64.1355, lon: -21.8954, enabled: false, keyNumber: 3 },
-  { id: 'barcelona', name: 'Barcelona', lat: 41.3851, lon: 2.1734, enabled: false, keyNumber: 4 },
-  { id: 'eritrea', name: 'Eritrea', lat: 15.3229, lon: 38.9251, enabled: false, keyNumber: 5 }
+  { id: 'juneau', name: 'Juneau, Alaska', lat: 58.3019, lon: -134.4197, enabled: true, keyNumber: 1 },
+  { id: 'vancouver', name: 'Vancouver', lat: 49.2827, lon: -123.1207, enabled: true, keyNumber: 2 },
+  { id: 'newyork', name: 'New York', lat: 40.7128, lon: -74.0060, enabled: true, keyNumber: 3 },
+  { id: 'lisbon', name: 'Lisbon', lat: 38.7223, lon: -9.1393, enabled: false, keyNumber: 4 },
+  { id: 'cairo', name: 'Cairo', lat: 30.0444, lon: 31.2357, enabled: false, keyNumber: 5 },
+  { id: 'dubai', name: 'Dubai', lat: 25.2048, lon: 55.2708, enabled: false, keyNumber: 6 },
+  { id: 'delhi', name: 'Delhi', lat: 28.6139, lon: 77.2090, enabled: false, keyNumber: 7 },
+  { id: 'dhaka', name: 'Dhaka', lat: 23.8103, lon: 90.4125, enabled: false, keyNumber: 8 },
+  { id: 'hanoi', name: 'Hanoi', lat: 21.0285, lon: 105.8542, enabled: false, keyNumber: 9 }
 ];  
 
 // Building wall bearing in degrees
-const wallBearing = 270;
+const wallBearing = 260;
+
+// Date configuration
+const useToday = false; // If true, uses today's date; if false, uses manual date below
+const manualDay = 21;   // Day of month (1-31)
+const manualMonth = 3;  // Month (1-12, where 1=January, 12=December)
+const manualYear = 2026; // Year
 
 const CANVAS_WIDTH = 8192;
 const CANVAS_HEIGHT = 1080;
@@ -23,6 +33,7 @@ let paneWidth;
 let paneHeight;
 let paneGapX;
 let paneGapY;
+let totalWindowWidth;
 
 // Time animation
 let timeProgress = 0; // 0 to 1, loops continuously
@@ -71,10 +82,10 @@ function getSunriseSunset(lat, lon, date) {
 
 // Get animated time that loops through the day
 function getAnimatedTime() {
-  const startHour = 6;
+  const startHour = 0;
   const startMinute = 0;
-  const endHour = 18;
-  const endMinute = 0;
+  const endHour = 23;
+  const endMinute = 59;
 
   // Convert to total minutes
   const startMinutes = startHour * 60 + startMinute; // 360 minutes (6:00 AM)
@@ -89,7 +100,7 @@ function getAnimatedTime() {
   const seconds = floor((totalMinutes % 1) * 60); // Extract fractional minutes as seconds
 
   // Create a date object with the mapped time including seconds
-  const now = new Date();
+  const now = useToday ? new Date() : new Date(manualYear, manualMonth - 1, manualDay);
   now.setHours(hours, minutes, seconds, 0);
 
   return now;
@@ -203,6 +214,8 @@ function setup() {
   paneGapX = paneHeight * 0.12;
   paneGapY = paneHeight * 0.12;
 
+  totalWindowWidth = windowCol * paneWidth + (windowCol - 1) * paneGapX;
+  //console.log(`Total window width: ${totalWindowWidth}`); // For debugging
 
 }
 
@@ -364,7 +377,7 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
   // Parallel light
   let parallelOriginX = isWestWindow
     ? (SIDE_WALL + MAIN_WALL + windowCornerOffset) - tan(currentLightAngle) * (MAIN_WALL)
-    : (CANVAS_WIDTH - SIDE_WALL - MAIN_WALL - windowCornerOffset) + tan(currentLightAngle) * (MAIN_WALL);
+    : ((SIDE_WALL - totalWindowWidth) - windowCornerOffset) + tan(currentLightAngle) * (MAIN_WALL);
   let parallelOriginY = (windowTopOffset + tan(currentElevation) * (MAIN_WALL));
 
   // Draw the window panes
@@ -407,6 +420,7 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
         tempGraphics.drawingContext.rect(SIDE_WALL + MAIN_WALL, 0, SIDE_WALL, CANVAS_HEIGHT);
       } else {
         tempGraphics.drawingContext.rect(0, 0, SIDE_WALL, CANVAS_HEIGHT);
+        //tempGraphics.drawingContext.rect(0, 0, 0, 0);
       }
       tempGraphics.drawingContext.clip();
 
