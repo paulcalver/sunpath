@@ -1,8 +1,16 @@
 html, body {
   margin: 0;
   padding: 0;
+  background-color: #000;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  width: 9600px;
 }
 
 canvas {
   display: block;
+  margin: 0 704px;
 }
