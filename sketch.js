@@ -8,10 +8,11 @@ const locations = [
 ];  
 
 // Building wall bearing in degrees
-const wallBearing = 245;
+const wallBearing = 270;
 
 const CANVAS_WIDTH = 8192;
 const CANVAS_HEIGHT = 1080;
+//const CANVAS_HEIGHT = 1169;
 const MAIN_WALL = 1920; // Width of main wall area
 const SIDE_WALL = (CANVAS_WIDTH - MAIN_WALL) / 2; // Width of side wall area
 
@@ -70,10 +71,10 @@ function getSunriseSunset(lat, lon, date) {
 
 // Get animated time that loops through the day
 function getAnimatedTime() {
-  const startHour = 5;
+  const startHour = 6;
   const startMinute = 0;
-  const endHour = 19;
-  const endMinute = 59;
+  const endHour = 18;
+  const endMinute = 0;
 
   // Convert to total minutes
   const startMinutes = startHour * 60 + startMinute; // 360 minutes (6:00 AM)
@@ -234,8 +235,8 @@ function draw() {
   tempGraphics.clear();
 
   // Constants for window positions (same for all locations)
-  const slightOffset = 2;
-  const topAlign = 30;
+  const slightOffset = 1;
+  const topAlign = 50;
   const leftAlign = 10;
 
   // Loop through enabled locations
@@ -289,7 +290,7 @@ function draw() {
     blurShader.setUniform('texelSize', [1.0 / width, 1.0 / height]);
     const blurAmount = 3;
     blurShader.setUniform('blurAmount', blurAmount);
-    blurShader.setUniform('grainAmount', 0.0); // Grain intensity (0.0 - 1.0)
+    blurShader.setUniform('grainAmount', 0.1); // Grain intensity (0.0 - 1.0)
     blurShader.setUniform('time', grainTime); // Pass smooth grain time
 
     // Draw the textured rectangle with no fill
@@ -363,7 +364,7 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
   // Parallel light
   let parallelOriginX = isWestWindow
     ? (SIDE_WALL + MAIN_WALL + windowCornerOffset) - tan(currentLightAngle) * (MAIN_WALL)
-    : (width - SIDE_WALL - MAIN_WALL - windowCornerOffset) + tan(currentLightAngle) * (MAIN_WALL);
+    : (CANVAS_WIDTH - SIDE_WALL - MAIN_WALL - windowCornerOffset) + tan(currentLightAngle) * (MAIN_WALL);
   let parallelOriginY = (windowTopOffset + tan(currentElevation) * (MAIN_WALL));
 
   // Draw the window panes
@@ -382,6 +383,10 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
       let parallelY = parallelOriginY + j * (paneHeight + paneGapY);
 
       // Draw projected light representation
+      tempGraphics.push();
+      tempGraphics.clip(() => {
+        tempGraphics.rect(SIDE_WALL, 0, MAIN_WALL, CANVAS_HEIGHT);
+      });
 
       tempGraphics.beginShape();
       tempGraphics.vertex(baseX, y);
@@ -390,13 +395,30 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
       tempGraphics.vertex(baseX, y + projectedPaneHeight);
       tempGraphics.endShape(CLOSE);
 
+      tempGraphics.pop();
+
       // Draw parallel light representation
+      tempGraphics.push();
+      tempGraphics.drawingContext.save();
+
+      // Create clipping path based on window orientation
+      tempGraphics.drawingContext.beginPath();
+      if (isWestWindow) {
+        tempGraphics.drawingContext.rect(SIDE_WALL + MAIN_WALL, 0, SIDE_WALL, CANVAS_HEIGHT);
+      } else {
+        tempGraphics.drawingContext.rect(0, 0, SIDE_WALL, CANVAS_HEIGHT);
+      }
+      tempGraphics.drawingContext.clip();
+
       tempGraphics.beginShape();
       tempGraphics.vertex(parallelBaseX, parallelY);
       tempGraphics.vertex(parallelRightX, parallelY);
       tempGraphics.vertex(parallelRightX, parallelY + paneHeight);
       tempGraphics.vertex(parallelBaseX, parallelY + paneHeight);
       tempGraphics.endShape(CLOSE);
+
+      tempGraphics.drawingContext.restore();
+      tempGraphics.pop();
 
     }
   }
