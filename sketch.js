@@ -65,7 +65,7 @@ const grainSpeed = 0.1; // Speed of grain animation (independent of timeSpeed)
 
 // Shader parameters
 const blurAmount = 3.5;    // Blur intensity (higher = more blur)
-const grainAmount = 0.0; // Grain intensity (0.0 - 1.0)
+const grainAmount = 0.15; // Grain intensity (0.0 - 1.0)
 
 // Rendering
 let blurShader;
