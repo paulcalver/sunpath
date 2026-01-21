@@ -14,3 +14,26 @@ canvas {
   display: block;
   margin: 0 704px;
 }
+
+#leftLine {
+  position: absolute;
+  left: 3840px;
+  top: 0;
+  width: 5px;
+  height: 100vh;
+  background-color: red;
+  pointer-events: none;
+  z-index: 9999;
+  display: block;
+}
+#rightLine {
+  position: absolute;
+  left: 5760px;
+  top: 0;
+  width: 5px;
+  height: 100vh;
+  background-color: red;
+  pointer-events: none;
+  z-index: 9999;
+  display: block;
+}
