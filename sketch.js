@@ -8,7 +8,12 @@ const locations = [
 ];  
 
 // Building wall bearing in degrees
-const wallBearing = 270;
+const wallBearing = 245;
+
+const CANVAS_WIDTH = 8192;
+const CANVAS_HEIGHT = 1080;
+const MAIN_WALL = 1920; // Width of main wall area
+const SIDE_WALL = (CANVAS_WIDTH - MAIN_WALL) / 2; // Width of side wall area
 
 // Window grid configuration
 let windowCol;
@@ -65,9 +70,9 @@ function getSunriseSunset(lat, lon, date) {
 
 // Get animated time that loops through the day
 function getAnimatedTime() {
-  const startHour = 0;
+  const startHour = 5;
   const startMinute = 0;
-  const endHour = 23;
+  const endHour = 19;
   const endMinute = 59;
 
   // Convert to total minutes
@@ -158,7 +163,7 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(windowWidth, windowHeight, WEBGL);
+  createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT, WEBGL);
   angleMode(DEGREES);
   noStroke();
   colorMode(HSB, 360, 100, 100, 100);
@@ -177,14 +182,14 @@ function setup() {
 
   // Create graphics buffers
   // Accumulation buffer - persists between frames for trail effect
-  graphics = createGraphics(windowWidth, windowHeight);
+  graphics = createGraphics(CANVAS_WIDTH, CANVAS_HEIGHT);
   graphics.angleMode(DEGREES);
   graphics.noStroke();
   graphics.colorMode(HSB, 360, 100, 100, 100);
   graphics.background(246, 50, 4);
 
   // Temporary buffer - cleared each frame, draws shapes at full opacity
-  tempGraphics = createGraphics(windowWidth, windowHeight);
+  tempGraphics = createGraphics(CANVAS_WIDTH, CANVAS_HEIGHT);
   tempGraphics.angleMode(DEGREES);
   tempGraphics.noStroke();
   tempGraphics.colorMode(HSB, 360, 100, 100, 100);
@@ -334,8 +339,8 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
   // Calculate projection origin
   let horizontalOffset = windowCornerOffset / tan(currentLightAngle);
   let originX = isWestWindow
-    ? horizontalOffset                    // West: measure from left edge
-    : width - horizontalOffset;           // East: measure from right edge
+    ? horizontalOffset + SIDE_WALL           // West: measure from left edge
+    : width - horizontalOffset - SIDE_WALL;  // East: measure from right edge
   let originY = windowTopOffset + tan(currentElevation) * horizontalOffset;
 
   // Calculate projected dimensions
@@ -355,20 +360,42 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
   let rowYStep = projectedPaneHeight + projectedGapY;
   let vPaneHeight = vPaneOffset + projectedPaneHeight;
 
+  // Parallel light
+  let parallelOriginX = isWestWindow
+    ? (SIDE_WALL + MAIN_WALL + windowCornerOffset) - tan(currentLightAngle) * (MAIN_WALL)
+    : (width - SIDE_WALL - MAIN_WALL - windowCornerOffset) + tan(currentLightAngle) * (MAIN_WALL);
+  let parallelOriginY = (windowTopOffset + tan(currentElevation) * (MAIN_WALL));
+
   // Draw the window panes
   for (let i = 0; i < windowCol; i++) {
     let baseX = originX + i * colXStep;
     let baseY = originY + i * colYStep;
     let rightX = baseX + projectedPaneWidth;
 
+    let parallelBaseX = parallelOriginX + i * (paneWidth + paneGapX);
+    // let parallelY = parallelOriginY;
+    let parallelRightX = parallelBaseX + paneWidth;
+
     for (let j = 0; j < windowRow; j++) {
       let y = baseY + j * rowYStep;
+
+      let parallelY = parallelOriginY + j * (paneHeight + paneGapY);
+
+      // Draw projected light representation
 
       tempGraphics.beginShape();
       tempGraphics.vertex(baseX, y);
       tempGraphics.vertex(rightX, y + vPaneOffset);
       tempGraphics.vertex(rightX, y + vPaneHeight);
       tempGraphics.vertex(baseX, y + projectedPaneHeight);
+      tempGraphics.endShape(CLOSE);
+
+      // Draw parallel light representation
+      tempGraphics.beginShape();
+      tempGraphics.vertex(parallelBaseX, parallelY);
+      tempGraphics.vertex(parallelRightX, parallelY);
+      tempGraphics.vertex(parallelRightX, parallelY + paneHeight);
+      tempGraphics.vertex(parallelBaseX, parallelY + paneHeight);
       tempGraphics.endShape(CLOSE);
 
     }
@@ -418,11 +445,11 @@ function getSunPosition(lat, lon, date) {
   return { azimuth, elevation };
 }
 
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  graphics.resizeCanvas(windowWidth, windowHeight);
-  tempGraphics.resizeCanvas(windowWidth, windowHeight);
-}
+// function windowResized() {
+//   resizeCanvas(windowWidth, windowHeight);
+//   graphics.resizeCanvas(windowWidth, windowHeight);
+//   tempGraphics.resizeCanvas(windowWidth, windowHeight);
+// }
 
 function keyPressed() {
   // Check if a number key (1-9) was pressed
