@@ -19,9 +19,9 @@ canvas {
   position: absolute;
   left: 3840px;
   top: 0;
-  width: 5px;
+  width: 2px;
   height: 100vh;
-  background-color: red;
+  background-color: rgb(131, 131, 131);
   pointer-events: none;
   z-index: 9999;
   display: block;
@@ -30,9 +30,9 @@ canvas {
   position: absolute;
   left: 5760px;
   top: 0;
-  width: 5px;
+  width: 2px;
   height: 100vh;
-  background-color: red;
+  background-color: rgb(131, 131, 131);
   pointer-events: none;
   z-index: 9999;
   display: block;
