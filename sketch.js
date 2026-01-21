@@ -3,16 +3,16 @@ const locations = [
   { id: 'juneau', name: 'Juneau, Alaska', lat: 58.3019, lon: -134.4197, enabled: true, keyNumber: 1 },
   { id: 'vancouver', name: 'Vancouver', lat: 49.2827, lon: -123.1207, enabled: true, keyNumber: 2 },
   { id: 'newyork', name: 'New York', lat: 40.7128, lon: -74.0060, enabled: true, keyNumber: 3 },
-  { id: 'lisbon', name: 'Lisbon', lat: 38.7223, lon: -9.1393, enabled: false, keyNumber: 4 },
-  { id: 'cairo', name: 'Cairo', lat: 30.0444, lon: 31.2357, enabled: false, keyNumber: 5 },
-  { id: 'dubai', name: 'Dubai', lat: 25.2048, lon: 55.2708, enabled: false, keyNumber: 6 },
-  { id: 'delhi', name: 'Delhi', lat: 28.6139, lon: 77.2090, enabled: false, keyNumber: 7 },
-  { id: 'dhaka', name: 'Dhaka', lat: 23.8103, lon: 90.4125, enabled: false, keyNumber: 8 },
-  { id: 'hanoi', name: 'Hanoi', lat: 21.0285, lon: 105.8542, enabled: false, keyNumber: 9 }
+  { id: 'lisbon', name: 'Lisbon', lat: 38.7223, lon: -9.1393, enabled: true, keyNumber: 4 },
+  { id: 'cairo', name: 'Cairo', lat: 30.0444, lon: 31.2357, enabled: true, keyNumber: 5 },
+  { id: 'dubai', name: 'Dubai', lat: 25.2048, lon: 55.2708, enabled: true, keyNumber: 6 },
+  { id: 'delhi', name: 'Delhi', lat: 28.6139, lon: 77.2090, enabled: true, keyNumber: 7 },
+  { id: 'dhaka', name: 'Dhaka', lat: 23.8103, lon: 90.4125, enabled: true, keyNumber: 8 },
+  { id: 'hanoi', name: 'Hanoi', lat: 21.0285, lon: 105.8542, enabled: true, keyNumber: 9 }
 ];  
 
 // Building wall bearing in degrees
-const wallBearing = 260;
+const wallBearing = 270;
 
 // Date configuration
 const useToday = false; // If true, uses today's date; if false, uses manual date below
@@ -34,6 +34,8 @@ let paneHeight;
 let paneGapX;
 let paneGapY;
 let totalWindowWidth;
+let totalWindowHeight;
+let groupGap;
 
 // Time animation
 let timeProgress = 0; // 0 to 1, loops continuously
@@ -44,12 +46,20 @@ const timeSpeed = 0.0005; // Adjust this to speed up/slow down (higher = faster)
 let grainTime = 0;
 const grainSpeed = 0.1; // Speed of grain animation (independent of timeSpeed)
 
+// Shader parameters
+const blurAmount = 1.5;    // Blur intensity (higher = more blur)
+const grainAmount = 0.0; // Grain intensity (0.0 - 1.0)
+
 // Rendering
 let blurShader;
 let graphics;      // Accumulation buffer (persists trails)
 let tempGraphics;  // Temporary buffer (draws current frame at full opacity)
-const trailAlpha = 20; // How quickly trails fade (lower = longer trails)
+const trailAlpha = 50; // How quickly trails fade (lower = longer trails)
 let timeDisplay;   // DOM element for displaying time
+
+// Window fade-in tracking
+let windowVisibility = {}; // Track visibility state for each location
+const fadeInDuration = 120; // Frames to fade in (at 60fps = 2 seconds)
 
 // Calculate sunrise and sunset times for a given date and location
 function getSunriseSunset(lat, lon, date) {
@@ -207,15 +217,22 @@ function setup() {
   tempGraphics.colorMode(HSB, 360, 100, 100, 100);
 
   // Window grid configuration
-  windowCol = 4;
-  windowRow = 8;
-  paneHeight = height / 14;
-  paneWidth = paneHeight * 0.6;
-  paneGapX = paneHeight * 0.12;
-  paneGapY = paneHeight * 0.12;
+  windowCol = 6;
+  windowRow = 4;
+  paneHeight = (height * 0.3) / windowRow;
+  paneWidth = paneHeight * 0.5;
+  paneGapX = paneHeight * 0.08;
+  paneGapY = paneHeight * 0.08;
 
   totalWindowWidth = windowCol * paneWidth + (windowCol - 1) * paneGapX;
-  //console.log(`Total window width: ${totalWindowWidth}`); // For debugging
+  totalWindowHeight = windowRow * paneHeight + (windowRow - 1) * paneGapY;
+
+  groupGap = 80;
+
+  // Initialize window visibility tracking
+  locations.forEach(loc => {
+    windowVisibility[loc.id] = { visible: false, fadeFrame: 0 };
+  });
 
 }
 
@@ -248,8 +265,8 @@ function draw() {
   tempGraphics.clear();
 
   // Constants for window positions (same for all locations)
-  const slightOffset = 1;
-  const topAlign = 50;
+  const slightOffset = 2;
+  const topAlign = CANVAS_HEIGHT / 3 - totalWindowHeight / 2;
   const leftAlign = 10;
 
   // Loop through enabled locations
@@ -259,38 +276,85 @@ function draw() {
     // Calculate sun position for this location
     const sunPos = getSunPosition(location.lat, location.lon, now);
 
-    // Skip if sun is below horizon (no windows to draw)
-    if (sunPos.elevation < 0) {
-      return;
-    }
-
-    // Calculate color/brightness for this location's windows
-    const appearingSunAlpha = constrain(map(sunPos.elevation, 0, 12, 0, 70), 0, 70);
-    const appearingSunHue = constrain(map(sunPos.azimuth, 180, 240, 35, 25), 25, 35);
-
-    // Calculate light angle for brightness fade
+    // Determine if this is east or west window time
     const isAfternoon = sunPos.azimuth >= 180;
+    const orientation = isAfternoon ? 'west' : 'east';
+    
+    // Calculate light angle to determine if window should be visible
     const lightAngle = isAfternoon
       ? wallBearing - sunPos.azimuth
       : sunPos.azimuth - (wallBearing - 180);
-    const disappearingSunAlpha = constrain(map(lightAngle, 12, 0, 70, 0), 0, 70);
+    
+    // Window is visible if sun is above horizon AND light hits the wall
+    const shouldBeVisible = sunPos.elevation > 0 && lightAngle > 0;
 
-    const windowBrightness = min(appearingSunAlpha, disappearingSunAlpha);
-    const windowAlphaFade = map(windowBrightness, 0, 80, 0, 1);
-    const baseWindowAlpha = 70;
+    // Track visibility and fade-in separately for east and west
+    const visKey = `${location.id}_${orientation}`;
+    if (!windowVisibility[visKey]) {
+      windowVisibility[visKey] = { visible: false, fadeFrame: 0 };
+    }
+    
+    const visState = windowVisibility[visKey];
+    
+    if (shouldBeVisible && !visState.visible) {
+      // Window just became visible - start fade-in
+      visState.visible = true;
+      visState.fadeFrame = 0;
+    } else if (!shouldBeVisible && visState.visible) {
+      // Window just became invisible
+      visState.visible = false;
+      visState.fadeFrame = 0;
+    }
+    
+    // Increment fade frame counter
+    if (visState.visible && visState.fadeFrame < fadeInDuration) {
+      visState.fadeFrame++;
+    }
+    
+    // Calculate fade-in multiplier (0 to 1)
+    const fadeInAlpha = visState.visible ? min(visState.fadeFrame / fadeInDuration, 1.0) : 0;
+
+    // Skip if window shouldn't be visible
+    if (!shouldBeVisible) {
+      return;
+    }
+
+    // Color mapping based on elevation
+    // Low elevation (0-15°): Dark orange/red, high saturation, low brightness
+    // High elevation (15-60°+): White, low saturation, high brightness
+    const elevationForColor = constrain(sunPos.elevation, 0, 45);
+    
+    // Hue: 25 (orange-red) at low elevation, stays around 30 at high
+    const windowHue = map(elevationForColor, 0, 30, 20, 35);
+    
+    // Saturation: 100 at low elevation (sunrise colors), 20 at high elevation (white)
+    const windowSaturation = map(elevationForColor, 0, 60, 100, 100);
+    
+    // Brightness: 30 at low elevation (dark), 95 at high elevation (bright white)
+    const windowBrightness = map(elevationForColor, 0, 60, 25, 75);
+    
+    // Base alpha also increases with elevation
+    const elevationAlpha = map(elevationForColor, 0, 15, 0, 100);
+    
+    // Light angle fade (when sun moves away from wall bearing)
+    const lightAngleFade = constrain(map(lightAngle, 12, 0, 1, 0), 0, 1);
+    
+    // Combine all alpha factors
+    const baseWindowAlpha = 30;
+    const combinedAlpha = baseWindowAlpha * (elevationAlpha / 70) * lightAngleFade * fadeInAlpha;
 
     // Set color for this location's windows
-    tempGraphics.fill(appearingSunHue, 100, windowBrightness, baseWindowAlpha * windowAlphaFade);
+    tempGraphics.fill(windowHue, windowSaturation, windowBrightness, combinedAlpha);
 
     // Draw all 3 window pairs at SAME positions for all locations (overlapping)
     drawWindow(now, location, sunPos, leftAlign, topAlign);
     drawWindow(now, location, sunPos, leftAlign + slightOffset, topAlign + slightOffset);
 
-    drawWindow(now, location, sunPos, leftAlign + 300, topAlign);
-    drawWindow(now, location, sunPos, leftAlign + 300 + slightOffset, topAlign + slightOffset);
+    drawWindow(now, location, sunPos, leftAlign + totalWindowWidth + groupGap, topAlign);
+    drawWindow(now, location, sunPos, leftAlign + totalWindowWidth + groupGap + slightOffset, topAlign + slightOffset);
 
-    drawWindow(now, location, sunPos, leftAlign + 600, topAlign);
-    drawWindow(now, location, sunPos, leftAlign + 600 + slightOffset, topAlign + slightOffset);
+    drawWindow(now, location, sunPos, leftAlign + 2 * (totalWindowWidth + groupGap), topAlign);
+    drawWindow(now, location, sunPos, leftAlign + 2 * (totalWindowWidth + groupGap) + slightOffset, topAlign + slightOffset);
   });
 
   // Blend temp buffer onto accumulation buffer
@@ -301,9 +365,8 @@ function draw() {
     shader(blurShader);
     blurShader.setUniform('tex0', graphics);
     blurShader.setUniform('texelSize', [1.0 / width, 1.0 / height]);
-    const blurAmount = 3;
     blurShader.setUniform('blurAmount', blurAmount);
-    blurShader.setUniform('grainAmount', 0.1); // Grain intensity (0.0 - 1.0)
+    blurShader.setUniform('grainAmount', grainAmount);
     blurShader.setUniform('time', grainTime); // Pass smooth grain time
 
     // Draw the textured rectangle with no fill
