@@ -26,7 +26,7 @@ In order to run the work, a touch designer web plugin was used, this system load
 
 Multichannel 9600x1080 source here - https://lab.paulcalver.cc/sun/g05/
 
-Touch Designer Plugin sourced via Rob Hall at Goldsmiths - [r.hall@gold.ac.uk](mailto:r.hall@gold.ac.uk)
+Touch Designer Plugin sourced via Rob Hall at Goldsmiths.
 
 A simple 2D browser based version can be previewed here. Please note, this requires a desktop computer as it's not currently mobile friendly - https://lab.paulcalver.cc/sun/web/
 
