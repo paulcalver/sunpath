@@ -2,7 +2,7 @@
 
 const locations = [
   { id: 'london', name: 'London, UK', lat: 51.5074, lon: -0.1278, enabled: true, keyNumber: 1 },
-  { id: 'marrakesh', name: 'Marrakesh, Morocco', lat: 31.6295, lon: -7.9811, enabled: true, keyNumber: 2 }
+  { id: 'marrakesh', name: 'Marrakesh, Morocco', lat: 31.6295, lon: -7.9811, enabled: true, keyNumber: 2 }//,
   // { id: 'newyork', name: 'New York', lat: 40.7128, lon: -74.0060, enabled: true, keyNumber: 3 },
   // { id: 'lisbon', name: 'Lisbon', lat: 38.7223, lon: -9.1393, enabled: true, keyNumber: 4 },
   // { id: 'cairo', name: 'Cairo', lat: 30.0444, lon: 31.2357, enabled: true, keyNumber: 5 },
@@ -13,7 +13,7 @@ const locations = [
 ];
 
 // Building wall bearing in degrees
-const wallBearing = 300;
+const wallBearing = 245;
 
 // Date configuration
 const useToday = true; // If true, uses today's date; if false, uses manual date below
@@ -29,19 +29,28 @@ const myEndMinute = 0;
 const mySunriseElevation = 2; // Degrees above horizon for sunrise effect (Lower better for slower speeds)
 const mySunsetElevation = 2;  // Degrees above horizon for sunset effect (Lower better for slower speeds)
 
+// Time animation
+let timeProgress = 0; // 0 to 1, loops continuously
+const timeSpeed = 0.00005; // Seminar Timing
+//const timeSpeed = 0.004; // Adjust this to speed up/slow down (higher = faster)
+
+// Shader parameters
+const blurAmount = 3;    // Blur intensity (higher = more blur)
+const grainAmount = 0.1; // Grain intensity (0.0 - 1.0)
+
+
 // Canvas configuration
+const USE_RESPONSIVE_MODE = true; // true = window size (main wall only), false = full canvas with side walls // NOTE - style.css may need to be adjusted accordingly
 
-const SCALE_FACTOR = 1; // Scale factor for canvas size
+let SCALE_FACTOR = 1; // Scale factor for canvas size
+let MAX_CANVAS_WIDTH = 8192;
+let MAX_CANVAS_HEIGHT = 1080;
+let MAX_MAIN_WALL = 1920; // Width of main wall area
 
-const MAX_CANVAS_WIDTH = 8192;
-const MAX_CANVAS_HEIGHT = 1080;
-const MAX_MAIN_WALL = 1920; // Width of main wall area
-
-const CANVAS_WIDTH = MAX_CANVAS_WIDTH * SCALE_FACTOR;
-const CANVAS_HEIGHT = MAX_CANVAS_HEIGHT * SCALE_FACTOR;
-const MAIN_WALL = MAX_MAIN_WALL * SCALE_FACTOR;
-
-const SIDE_WALL = (CANVAS_WIDTH - MAIN_WALL) / 2; // Width of side wall area
+let CANVAS_WIDTH;
+let CANVAS_HEIGHT;
+let MAIN_WALL;
+let SIDE_WALL;
 
 // Window grid configuration
 let windowCol;
@@ -52,26 +61,18 @@ let paneGapX;
 let paneGapY;
 let groupGap;
 
-let mySlightOffset = 0.5; // Offset for double window effect
+let mySlightOffset = 3; // Offset for double window effect
 
-// Time animation
-let timeProgress = 0; // 0 to 1, loops continuously
-const timeSpeed = 0.0005; // Seminar Timing
-//const timeSpeed = 0.0002; // Adjust this to speed up/slow down (higher = faster)
 
 // Grain animation (separate from day/night cycle)
 let grainTime = 0;
-const grainSpeed = 0.1; // Speed of grain animation (independent of timeSpeed)
-
-// Shader parameters
-const blurAmount = 3.5;    // Blur intensity (higher = more blur)
-const grainAmount = 0.15; // Grain intensity (0.0 - 1.0)
+const grainSpeed = 0.01; // Speed of grain animation (independent of timeSpeed)
 
 // Rendering
 let blurShader;
 let graphics;      // Accumulation buffer (persists trails)
 let tempGraphics;  // Temporary buffer (draws current frame at full opacity)
-const trailAlpha = 50; // How quickly trails fade (lower = longer trails)
+const trailAlpha = 25; // How quickly trails fade (lower = longer trails)
 let timeDisplay;   // DOM element for displaying time
 
 // Calculate sunrise and sunset times for a given date and location
@@ -197,7 +198,26 @@ function preload() {
   );
 }
 
+function initializeCanvasDimensions() {
+  if (USE_RESPONSIVE_MODE) {
+    // Responsive mode: use window dimensions, show only main wall
+    CANVAS_WIDTH = windowWidth;
+    CANVAS_HEIGHT = windowHeight;
+    MAIN_WALL = CANVAS_WIDTH;
+    SIDE_WALL = 0;
+  } else {
+    // Full mode: use hard-coded dimensions with side walls
+    CANVAS_WIDTH = MAX_CANVAS_WIDTH * SCALE_FACTOR;
+    CANVAS_HEIGHT = MAX_CANVAS_HEIGHT * SCALE_FACTOR;
+    MAIN_WALL = MAX_MAIN_WALL * SCALE_FACTOR;
+    SIDE_WALL = (CANVAS_WIDTH - MAIN_WALL) / 2;
+  }
+}
+
 function setup() {
+  // Initialize canvas dimensions based on mode
+  initializeCanvasDimensions();
+
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT, WEBGL);
   angleMode(DEGREES);
   noStroke();
@@ -234,8 +254,8 @@ function setup() {
   windowRow = 8;
   paneHeight = height / 14;
   paneWidth = paneHeight * 1.5;
-  paneGapX = paneHeight * 0.08;
-  paneGapY = paneHeight * 0.08;
+  paneGapX = paneHeight * 0.12;
+  paneGapY = paneHeight * 0.12;
   groupGap = 40;
 
   // Generate random window configurations for each location
@@ -270,15 +290,14 @@ function draw() {
   //now.setHours(14, 0, 0);
 
   // Fade the accumulation buffer toward background color
-  graphics.fill(0, trailAlpha);
-  graphics.rect(0, 0, width, height);
+  graphics.fill(246, 50, 4, trailAlpha);
+  graphics.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   // Clear temp buffer completely (transparent)
   tempGraphics.clear();
 
   // Constants for window positions (same for all locations)
   const slightOffset = mySlightOffset; // Offset for double window effect
-  //const topAlign = 50;
   const leftAlign = 10;
 
   // Loop through enabled locations
@@ -294,18 +313,18 @@ function draw() {
     }
 
     // Calculate color/brightness for this location's windows
-    const appearingSunAlpha = constrain(map(sunPos.elevation, 0, mySunriseElevation, 0, 70), 0, 70);
-    const appearingSunHue = constrain(map(sunPos.elevation, 0, mySunriseElevation, 25, 35), 25, 35);
+    const appearingSunAlpha = constrain(map(sunPos.elevation, 0, mySunriseElevation, 0, 80), 0, 80);
+    const appearingSunHue = constrain(map(sunPos.elevation, 0, mySunriseElevation, 35, 25), 25, 35);
 
     // Calculate disappearing sun (sunset) - use same elevation threshold
-    const disappearingSunAlpha = constrain(map(sunPos.elevation, mySunsetElevation, 0, 70, 0), 0, 70);
+    const disappearingSunAlpha = constrain(map(sunPos.elevation, mySunsetElevation, 0, 80, 0), 0, 80);
     const disappearingSunHue = constrain(map(sunPos.elevation, mySunsetElevation, 0, 35, 25), 25, 35);
 
     // Use minimum alpha (whichever is limiting) and corresponding hue
     const windowBrightness = min(appearingSunAlpha, disappearingSunAlpha);
     const windowHue = windowBrightness === appearingSunAlpha ? appearingSunHue : disappearingSunHue;
     const windowAlphaFade = map(windowBrightness, 0, 80, 0, 1);
-    const baseWindowAlpha = 40;
+    const baseWindowAlpha = 70;
 
     // Set color for this location's windows
     tempGraphics.fill(windowHue, 100, windowBrightness, baseWindowAlpha * windowAlphaFade);
@@ -333,7 +352,7 @@ function draw() {
   if (blurShader) {
     shader(blurShader);
     blurShader.setUniform('tex0', graphics);
-    blurShader.setUniform('texelSize', [1.0 / width, 1.0 / height]);
+    blurShader.setUniform('texelSize', [1.0 / CANVAS_WIDTH, 1.0 / CANVAS_HEIGHT]);
     blurShader.setUniform('blurAmount', blurAmount);
     blurShader.setUniform('grainAmount', grainAmount);
     blurShader.setUniform('time', grainTime); // Pass smooth grain time
@@ -341,11 +360,11 @@ function draw() {
     // Draw the textured rectangle with no fill
     noStroke();
     texture(graphics);
-    rect(-width / 2, -height / 2, width, height);
+    rect(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2, CANVAS_WIDTH, CANVAS_HEIGHT);
   } else {
     // Fallback: render without shader
     push();
-    translate(-width / 2, -height / 2);
+    translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
     image(graphics, 0, 0);
     pop();
   }
@@ -386,7 +405,7 @@ function drawWindow(now, location, sunPos, windowCornerOffset, windowTopOffset, 
   let horizontalOffset = windowCornerOffset / tan(currentLightAngle);
   let originX = isWestWindow
     ? horizontalOffset + SIDE_WALL           // West: measure from left edge
-    : width - horizontalOffset - SIDE_WALL;  // East: measure from right edge
+    : CANVAS_WIDTH - horizontalOffset - SIDE_WALL;  // East: measure from right edge
   let originY = windowTopOffset + tan(currentElevation) * horizontalOffset;
 
   // Calculate projected dimensions
@@ -515,11 +534,23 @@ function getSunPosition(lat, lon, date) {
   return { azimuth, elevation };
 }
 
-// function windowResized() {
-//   resizeCanvas(windowWidth, windowHeight);
-//   graphics.resizeCanvas(windowWidth, windowHeight);
-//   tempGraphics.resizeCanvas(windowWidth, windowHeight);
-// }
+function windowResized() {
+  if (USE_RESPONSIVE_MODE) {
+    // Reinitialize dimensions
+    initializeCanvasDimensions();
+    
+    // Resize canvas and graphics buffers
+    resizeCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    graphics.resizeCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    tempGraphics.resizeCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Recalculate window grid based on new height
+    paneHeight = height / 14;
+    paneWidth = paneHeight * 1.5;
+    paneGapX = paneHeight * 0.12;
+    paneGapY = paneHeight * 0.12;
+  }
+}
 
 function keyPressed() {
   // Check if a number key (1-9) was pressed
