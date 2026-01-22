@@ -34,7 +34,11 @@ As this is still a WIP project, final instalation instructions are not yet avail
 
 ## Media
 
+Videos of the test installation in Goldsmiths G05 room during the pinup session on 21st Jan 2026
+
 https://github.com/user-attachments/assets/03aea1f0-01c6-4f51-bf25-8e8b32463106
+
+https://github.com/user-attachments/assets/7cdfd886-c3ba-4197-a583-cd4eb49cbaf7
 
 
 
