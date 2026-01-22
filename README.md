@@ -28,7 +28,7 @@ Multichannel 9600x1080 source here - https://lab.paulcalver.cc/sun/g05/
 
 Touch Designer Plugin sourced via Rob Hall at Goldsmiths - [r.hall@gold.ac.uk](mailto:r.hall@gold.ac.uk)
 
-A simple 2D browser based version can be previewed here. Note this requires a desktop computer as it's not currently mobile friendly - https://lab.paulcalver.cc/sun/web/
+A simple 2D browser based version can be previewed here. Please note, this requires a desktop computer as it's not currently mobile friendly - https://lab.paulcalver.cc/sun/web/
 
 As this is still a WIP project, final instalation instructions are not yet available.
 
