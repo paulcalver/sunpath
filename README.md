@@ -32,6 +32,12 @@ A simple 2D browser based version can be previewed here - https://lab.paulcalver
 
 As this is still a WIP project, final instalation instructions are not yet available.
 
+## Media
+
+![SUN - Overview Screenshot](media/sun_path_progression.jpg)
+
+![SUN - Overview Screenshot](media/sun_path_G05_test.mp4)
+
 
 ## Technology Used
 
