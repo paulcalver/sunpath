@@ -36,7 +36,8 @@ As this is still a WIP project, final instalation instructions are not yet avail
 
 ![SUN - Overview Screenshot](media/sun_path_progression.jpg)
 
-![SUN - Overview Screenshot](media/sun_path_G05_test.mp4)
+https://github.com/user-attachments/assets/03aea1f0-01c6-4f51-bf25-8e8b32463106
+
 
 
 ## Technology Used
